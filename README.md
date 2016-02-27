@@ -1,6 +1,7 @@
-# gym_search
+# Gym Search
 A command line tool for finding the Les Mills gym classes that are on. Pulls down the days timetable and stores it to a queryable format.
 
+```
 usage: gym.rb [options]
     -g, --gym       The gym you want classes from e.g. britomart, newmarket, city etc. (default any)
     -a, --after     The time that you want classes after e.g. 13:30 (default now)
@@ -9,10 +10,10 @@ usage: gym.rb [options]
     -c, --class     The class that you want times for e.g. Grit (default any)
     -nf, --nofetch  Will not fetch new timetable info before searching
     --help
+```
 
-
-Todo: 
- - Implement day search functionality
+##Todo: 
+ - Implement day search functionality, currently only works with today
  - Handle failure cases (pretty much everywhere)
  - Use data from all gyms, currently only Britomart, Newmarket, Auckland City and Takapuna
 
