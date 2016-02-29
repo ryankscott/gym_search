@@ -16,4 +16,5 @@ usage: gym.rb [options]
  - Implement day search functionality, currently only works with today
  - Handle failure cases (pretty much everywhere)
  - Use data from all gyms, currently only Britomart, Newmarket, Auckland City and Takapuna
-
+ - Bundle for dependencies
+ - Native executable

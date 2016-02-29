@@ -10,7 +10,7 @@ $db = SQLite3::Database.new "gym.db"
 $gym_ids = {
     "city" => "96382586-e31c-df11-9eaa-0050568522bb",
     "britomart" => "744366a6-c70b-e011-87c7-0050568522bb",
-    "takapuna" => "98382586-e31c-df11-9eaa-0050568522bb",  
+    "takapuna" => "98382586-e31c-df11-9eaa-0050568522bb",
     "newmarket" => "b6aa431c-ce1a-e511-a02f-0050568522bb"}
 
 def get_and_store_times()
@@ -71,13 +71,13 @@ begin
     exit
   end
 
-
-
 begin
+    # Get all the store times unless we've been passed no fetch
     if !opts.nofetch?
         get_and_store_times()
     end
-    
+
+    # Parse the day if given the day option
     if opts.day?
         day = Nickel.parse(opts[:day])
         if day.occurrences.empty?
@@ -88,19 +88,29 @@ begin
     end
 
    if opts.search?
-        search_string = Nickel.parse(opts[:search])
-        start_string = search_string.occurrences.first.start_time.to_time.strftime('%H:%M:%S')
-        end_string = search_string.occurrences.first.end_time.to_time.strftime('%H:%M:%S')
-        day_string = search_string.occurrences.first.start_date.to_date.strftime('%Y-%m-%d')
-        gym_string = $gym_ids.keys.map {|x| search_string.message.include?(x) ? x : nil}.compact.first 
+        parsed_string = Nickel.parse(opts[:search])
+        parsed_start_time = parsed_string.occurrences.first.start_time
+        start_string = (parsed_start_time.to_time.strftime('%H:%M:%S') if !parsed_start_time.nil?)
+
+        parsed_end_time =  parsed_string.occurrences.first.end_time
+        end_string = (parsed_end_time.to_time.strftime('%H:%M:%S') if !parsed_end_time.nil?)
+
+        parsed_start_date =  parsed_string.occurrences.first.start_date
+        day_string = (parsed_start_date.to_date.strftime('%Y-%m-%d') if !parsed_start_date.nil?)
+
+
+        gym_names = $gym_ids.keys
+        gym_names.map! {|x| parsed_string.message.include?(x) ? x : nil}.compact!
+        gym_string = gym_names.first if !gym_names.empty?
    else
        start_string = opts[:after]
        end_string = opts[:before]
        class_string = opts[:class]
        gym_string = opts[:gym]
+       day_string = opts[:day]
    end
 
-    
+
     query_string = "SELECT gym, class, location, TIME(start_datetime) from timetable
     WHERE gym like '%#{gym_string}%'
     AND TIME(start_datetime) > \"#{start_string}\"
@@ -109,8 +119,7 @@ begin
     AND class like '%#{class_string}%'
     order by start_datetime asc"
 
-    # puts query_string
-
+    #puts query_string
     db_rows = $db.execute(query_string)
     table_rows = []
     table_rows << ['Gym','Class', 'Location', 'Start Time']
