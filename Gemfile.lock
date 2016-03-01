@@ -1,0 +1,21 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    icalendar (2.3.0)
+    nickel (0.1.6)
+    slop (4.2.1)
+    sqlite3 (1.3.11)
+    terminal-table (1.5.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  icalendar
+  nickel
+  slop
+  sqlite3
+  terminal-table
+
+BUNDLED WITH
+   1.10.6

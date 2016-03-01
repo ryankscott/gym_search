@@ -1,3 +1,6 @@
+require 'rubygems'
+require 'bundler/setup'
+
 require 'icalendar'
 require 'open-uri'
 require 'sqlite3'
@@ -97,7 +100,6 @@ begin
 
         parsed_start_date =  parsed_string.occurrences.first.start_date
         day_string = (parsed_start_date.to_date.strftime('%Y-%m-%d') if !parsed_start_date.nil?)
-
 
         gym_names = $gym_ids.keys
         gym_names.map! {|x| parsed_string.message.include?(x) ? x : nil}.compact!
