@@ -9,6 +9,7 @@ require 'sqlite3'
 require 'slop'
 require 'terminal-table'
 require 'nickel'
+require 'pmap'
 
 # Open a database
 $db = SQLite3::Database.new "gym.db"
@@ -35,20 +36,22 @@ def get_and_store_times()
   SQL
 
 
+  # Calander :/
   base_url = "https://www.lesmills.co.nz/timetable-calander.ashx?club="
   insert_query = "INSERT OR IGNORE INTO timetable (gym,class,location,start_datetime,end_datetime) VALUES (?,?,?,?,?)"
-  # For each gym:
-  $gym_ids.each do |gym, id|
-  # Download the the ICS File
-    begin
-      gym_cal = open(base_url+id)
-    rescue OpenURI::HTTPError => e
-        puts "Trying to fetch times for #{gym} failed returned the following message #{e.message} going to next"
-        next
-    end
 
+  # Get each gym file in parallel
+  gym_cals = $gym_ids.pmap do |gym, id|
+    begin
+      [gym, open(base_url+id)]
+    rescue OpenURI::HTTPError => e
+      puts "Failed to fetch times for #{gym}"
+    end
+  end
+
+  gym_cals.each do |gym, id|
     # Parse the ICS
-    cals = Icalendar.parse(gym_cal)
+    cals = Icalendar.parse(id)
     events = cals.first.events
     # Write it to a sqlite db
     events.map {|x|
