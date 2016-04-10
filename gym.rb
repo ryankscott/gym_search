@@ -2,7 +2,6 @@
 
 require 'rubygems'
 require 'bundler/setup'
-
 require 'icalendar'
 require 'open-uri'
 require 'sqlite3'
@@ -10,128 +9,151 @@ require 'slop'
 require 'terminal-table'
 require 'nickel'
 require 'pmap'
+require 'thor'
 
-# Open a database
-$db = SQLite3::Database.new "gym.db"
-$gym_ids = {
-    "city" => "96382586-e31c-df11-9eaa-0050568522bb",
-    "britomart" => "744366a6-c70b-e011-87c7-0050568522bb",
-    "takapuna" => "98382586-e31c-df11-9eaa-0050568522bb",
-    "newmarket" => "b6aa431c-ce1a-e511-a02f-0050568522bb"}
+class GymSearch < Thor
+  def initialize(*args)
+    super
+    @gym_ids = {
+      "city" => "96382586-e31c-df11-9eaa-0050568522bb",
+      "britomart" => "744366a6-c70b-e011-87c7-0050568522bb",
+      "takapuna" => "98382586-e31c-df11-9eaa-0050568522bb",
+      "newmarket" => "b6aa431c-ce1a-e511-a02f-0050568522bb"}
 
-def get_and_store_times()
-  # Create a table
-  rows = $db.execute <<-SQL
-  CREATE TABLE IF NOT EXISTS timetable (
-        gym VARCHAR(9) NOT NULL,
-        class VARCHAR(45) NOT NULL,
-        location VARCHAR(27) NOT NULL,
-        start_datetime DATETIME NOT NULL,
-        end_datetime DATETIME NOT NULL
-  );
-  SQL
-
-  rows = $db.execute <<-SQL
-  CREATE UNIQUE INDEX IF NOT EXISTS unique_class ON timetable(gym, location, start_datetime);
-  SQL
-
-
-  # Calander :/
-  base_url = "https://www.lesmills.co.nz/timetable-calander.ashx?club="
-  insert_query = "INSERT OR IGNORE INTO timetable (gym,class,location,start_datetime,end_datetime) VALUES (?,?,?,?,?)"
-
-  # Get each gym file in parallel
-  gym_cals = $gym_ids.pmap do |gym, id|
-    begin
-      [gym, open(base_url+id)]
-    rescue OpenURI::HTTPError => e
-      puts "Failed to fetch times for #{gym}"
-    end
+    # Open a database
+    @db = SQLite3::Database.new "gym.db"
   end
 
-  gym_cals.each do |gym, id|
-    # Parse the ICS
-    cals = Icalendar.parse(id)
-    events = cals.first.events
-    # Write it to a sqlite db
-    events.map {|x|
-      $db.execute(insert_query, gym.to_s, x.summary.to_s, x.location.to_s, x.dtstart.strftime("%Y-%m-%d %H:%M:%S"), x.dtend.strftime("%Y-%m-%d %H:%M:%S"))
-    }
-  end
-end
+  no_commands do
+    # Gets all of the ICS files for each gym
+    def get_times()
+    # Calander :/
+    base_url = "https://www.lesmills.co.nz/timetable-calander.ashx?club="
 
-begin
-  opts = Slop.parse do |o|
-    o.string '-g', '--gym', 'The gym you want classes from e.g. britomart, newmarket, city etc. (default any)', default: ""
-    o.string '-a', '--after', 'The time that you want classes after e.g. 13:30 (default now)', default: DateTime.now.strftime("%H:%M:%S")
-    o.string '-b', '--before', 'The time that you want classes before e.g. 17:30 (default 23:59:59)', default: "23:59:59"
-    o.string '-d', '--day', 'The day you want classes for (default today) e.g. "today", "next tuesday"', default: DateTime.now.strftime("%Y-%m-%d")
-    o.string '-c', '--class', 'The class that you want times for e.g. Grit (default any)', default: ""
-    o.string '-s', '--search', 'Experimental NLP parsing of dates e.g. tomorrow after 6pm'
-    o.bool '-nf', '--nofetch', 'Will not fetch new timetable info before searching', default: false
-    o.on '--help' do
-      puts o
-      exit
-    end
-  end
-  rescue Slop::UnknownOption => e
-    puts "Unknown option provided '#{e.flag}'"
-    exit
-  end
-
-begin
-    # Get all the store times unless we've been passed no fetch
-    if !opts.nofetch?
-        get_and_store_times()
-    end
-
-    # Parse the day if given the day option
-    if opts.day?
-        day = Nickel.parse(opts[:day])
-        if day.occurrences.empty?
-            day_string = DateTime.now("%Y-%m-%d")
-        else
-            day_string = day.occurrences.first.start_date.to_date.to_s
+    # Get each gym file in parallel
+    gym_cals = @gym_ids.pmap do |gym, id|
+        begin
+          [gym, open(base_url+id)]
+        rescue OpenURI::HTTPError => e
+          puts "Failed to fetch times for #{gym}"
         end
+      end
+      return gym_cals
     end
 
-   if opts.search?
-        parsed_string = Nickel.parse(opts[:search])
-        parsed_start_time = parsed_string.occurrences.first.start_time
-        start_string = (parsed_start_time.to_time.strftime('%H:%M:%S') if !parsed_start_time.nil?)
+    # Stores all parsed times to the db
+    def store_times(gym_cals)
 
-        parsed_end_time =  parsed_string.occurrences.first.end_time
-        end_string = (parsed_end_time.to_time.strftime('%H:%M:%S') if !parsed_end_time.nil?)
+      # Create a table
+      rows = @db.execute <<-SQL
+        CREATE TABLE IF NOT EXISTS timetable (
+           gym VARCHAR(9) NOT NULL,
+           class VARCHAR(45) NOT NULL,
+           location VARCHAR(27) NOT NULL,
+           start_datetime DATETIME NOT NULL,
+           end_datetime DATETIME NOT NULL);
+       SQL
 
-        parsed_start_date =  parsed_string.occurrences.first.start_date
-        day_string = (parsed_start_date.to_date.strftime('%Y-%m-%d') if !parsed_start_date.nil?)
+      # Create indexes
+      rows = @db.execute <<-SQL
+         CREATE UNIQUE INDEX IF NOT EXISTS unique_class ON timetable(gym, location, start_datetime);
+      SQL
 
-        gym_names = $gym_ids.keys
-        gym_names.map! {|x| parsed_string.message.include?(x) ? x : nil}.compact!
-        gym_string = gym_names.first if !gym_names.empty?
-   else
-       start_string = opts[:after]
-       end_string = opts[:before]
-       class_string = opts[:class]
-       gym_string = opts[:gym]
-       day_string = opts[:day]
-   end
+      # Insert query statement
+      insert_query = "INSERT OR IGNORE INTO timetable (gym,class,location,start_datetime,end_datetime) VALUES (?,?,?,?,?)"
 
+      # For each stored ICS file 
+      gym_cals.each do |gym, id|
+        # Parse the ICS
+        cals = Icalendar.parse(id)
+        events = cals.first.events
 
-    query_string = "SELECT gym, class, location, TIME(start_datetime) from timetable
-    WHERE gym like '%#{gym_string}%'
-    AND TIME(start_datetime) > \"#{start_string}\"
-    AND TIME(end_datetime) <  \"#{end_string}\"
-    AND DATE(start_datetime) = \"#{day_string}\"
-    AND class like '%#{class_string}%'
+        # Write it to a sqlite db
+        events.map {|x|
+          @db.execute(insert_query, gym.to_s, x.summary.to_s, x.location.to_s, x.dtstart.strftime("%Y-%m-%d %H:%M:%S"), x.dtend.strftime("%Y-%m-%d %H:%M:%S"))
+        }
+      end
+    end
+  end
+
+  desc "show [options]", "Shows all the relevant gym classes with the following options"
+  method_option :gym, :aliases => "-g", :type => :string, :desc => "Only return classes from the gym specified e.g. britomart, newmarket"
+  method_option :date_string, :aliases => "-d", :required => true, :type => :string, :desc => "Only return classes between the specified date string e.g. today, tomorrow after 6pm, Between 10 am and 1 pm tomorrow"
+  method_option :no_fetch, :aliases => "-nf", :type => :boolean, :desc => "Does not fetch new timetable information before searching"
+  def show()
+    defaults = {
+      "start_string" => "00:00:00",
+      "end_string" => "23:59:59",
+      "class_string" => "",
+      "day_string" => DateTime.now.strftime("%Y-%m-%d"),
+      "gym_string" => ""
+    }
+
+    # Unless we're not getting new information
+    unless options[:no_fetch]
+             gym_cals = self.get_times()
+             self.store_times(gym_cals)
+    end
+
+    query_options = {}
+    if options[:date_string]
+      # Parse the string using NLP
+      parsed_string = Nickel.parse(options[:date_string])
+
+      # Take the first date mention
+      parsed_start_time = parsed_string.occurrences.first.start_time
+      # Convert it to a time and then save as string as HH:MM:SS unless we can't parse it
+      unless parsed_start_time.nil?
+        query_options["start_string"] = parsed_start_time.to_time.strftime('%H:%M:%S')
+      end
+
+      # Take the first date mention
+      parsed_end_time =  parsed_string.occurrences.first.end_time
+      # Convert it to a time and then save as a string as HH:MM:SS unless we can't parse it
+      unless parsed_end_time.nil?
+        query_options["end_string"] = parsed_end_time.to_time.strftime('%H:%M:%S')
+      end
+
+      # Take the first date mention
+      parsed_start_date =  parsed_string.occurrences.first.start_date
+      # Convert it to a date and then save as a string as Y-m-d unless we can't parse it
+      unless parsed_start_date.nil?
+        query_options["day_string"] = parsed_start_date.to_date.strftime('%Y-%m-%d')
+      end
+
+      # Try find a mention of a gym in the parsed text
+      gym_names = @gym_ids.keys
+      gym_names.map! {|x| parsed_string.message.include?(x) ? x : nil}.compact!
+      query_options["gym_string"] = gym_names.first if !gym_names.empty?
+
+      # TODO: Try find a mention of a class type
+    end
+
+    # Merge the defaults with the parsed strings
+    query_options = defaults.merge(query_options)
+
+    query_string = "SELECT gym, class, location, TIME(start_datetime), (strftime('%s', end_datetime) - strftime('%s', start_datetime))/60  from timetable
+    WHERE gym like '%#{query_options['gym_string']}%'
+    AND TIME(start_datetime) > \"#{query_options['start_string']}\"
+    AND TIME(start_datetime) <  \"#{query_options['end_string']}\"
+    AND DATE(start_datetime) = \"#{query_options['day_string']}\"
+    AND class like '%#{query_options['class_string']}%'
     order by start_datetime asc"
 
+    #puts query_options
     #puts query_string
-    db_rows = $db.execute(query_string)
+
+    db_rows = @db.execute(query_string)
     table_rows = []
-    table_rows << ['Gym','Class', 'Location', 'Start Time']
+    table_rows << ['Gym','Class', 'Location', 'Start Time', 'Duration']
     table_rows << :separator
     db_rows.each {|x| table_rows << x }
     table = Terminal::Table.new :rows => table_rows
     puts table
+  end
 end
+
+
+GymSearch.start
+
+
