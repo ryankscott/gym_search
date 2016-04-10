@@ -5,7 +5,6 @@ require 'bundler/setup'
 require 'icalendar'
 require 'open-uri'
 require 'sqlite3'
-require 'slop'
 require 'terminal-table'
 require 'nickel'
 require 'pmap'
@@ -62,7 +61,8 @@ class GymSearch < Thor
       # Insert query statement
       insert_query = "INSERT OR IGNORE INTO timetable (gym,class,location,start_datetime,end_datetime) VALUES (?,?,?,?,?)"
 
-      # For each stored ICS file 
+      # TODO: this is the slowest bit of code, need to speed this up
+      # For each stored ICS file
       gym_cals.each do |gym, id|
         # Parse the ICS
         cals = Icalendar.parse(id)
@@ -76,11 +76,9 @@ class GymSearch < Thor
     end
   end
 
-  desc "show [options]", "Shows all the relevant gym classes with the following options"
-  method_option :gym, :aliases => "-g", :type => :string, :desc => "Only return classes from the gym specified e.g. britomart, newmarket"
-  method_option :date_string, :aliases => "-d", :required => true, :type => :string, :desc => "Only return classes between the specified date string e.g. today, tomorrow after 6pm, Between 10 am and 1 pm tomorrow"
+  desc "find QUERY [options]", "Shows all the relevant gym classes with the following options. Expects a natural English sentence to use to search e.g. today after 3pm at britomart"
   method_option :no_fetch, :aliases => "-nf", :type => :boolean, :desc => "Does not fetch new timetable information before searching"
-  def show()
+  def find(search_string)
     defaults = {
       "start_string" => "00:00:00",
       "end_string" => "23:59:59",
@@ -96,9 +94,8 @@ class GymSearch < Thor
     end
 
     query_options = {}
-    if options[:date_string]
       # Parse the string using NLP
-      parsed_string = Nickel.parse(options[:date_string])
+      parsed_string = Nickel.parse(search_string)
 
       # Take the first date mention
       parsed_start_time = parsed_string.occurrences.first.start_time
@@ -127,7 +124,7 @@ class GymSearch < Thor
       query_options["gym_string"] = gym_names.first if !gym_names.empty?
 
       # TODO: Try find a mention of a class type
-    end
+     
 
     # Merge the defaults with the parsed strings
     query_options = defaults.merge(query_options)

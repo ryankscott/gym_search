@@ -17,7 +17,7 @@ chmod +x gym.rb
 ## Usage
 
 ```
-usage: ./gym.rb [options]
+usage: ./gym.rb show [options]
     -g, --gym       The gym you want classes from e.g. britomart, newmarket, city etc. (default any)
     -a, --after     The time that you want classes after e.g. 13:30 (default now)
     -b, --before    The time that you want classes before e.g. 17:30 (default 23:59:59)
