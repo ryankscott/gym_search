@@ -17,24 +17,13 @@ chmod +x gym.rb
 ## Usage
 
 ```
-<<<<<<< HEAD
-usage: ./gym.rb show [options]
-    -g, --gym       The gym you want classes from e.g. britomart, newmarket, city etc. (default any)
-    -a, --after     The time that you want classes after e.g. 13:30 (default now)
-    -b, --before    The time that you want classes before e.g. 17:30 (default 23:59:59)
-    -d, --day       The day you want classes for (default today)
-    -c, --class     The class that you want times for e.g. Grit (default any)
-    -nf, --nofetch  Will not fetch new timetable info before searching
-    --help
-=======
-usage: ./gym.rb Commands:
-  gym.rb help [COMMAND]                                # Describe available commands or one specified
-  gym.rb show [options] -d, --date-string=DATE_STRING  # Shows all the relevant gym classes with the following options
-Options:
-  -g, [--gym=GYM]                     # Only return classes from the gym specified e.g. britomart, newmarket
-  -d, --date-string=DATE_STRING       # Only return classes between the specified date string e.g. today, tomorrow after 6pm, Between 10 am and 1 pm tomorrow
-  -nf, [--no-fetch], [--no-no-fetch]  # Does not fetch new timetable information before searching
->>>>>>> 3b4babaa95ac64b641d3f1a2f725a10df63a433f
+./gym.rb 
+Commands: 
+    gym.rb find QUERY [options] # Shows all the relevant gym classes with the following options. Expects a natural English sentence to use to search e.g. today after 3pm at britomart
+    gym.rb help [COMMAND] # Describe available commands or one specific command
+
+./gym.rb find "today after 3pm at britomart"
+
 ```
 
 ## Todo
