@@ -18,7 +18,7 @@ class GymSearch < Thor
       "britomart" => "744366a6-c70b-e011-87c7-0050568522bb",
       "takapuna" => "98382586-e31c-df11-9eaa-0050568522bb",
       "newmarket" => "b6aa431c-ce1a-e511-a02f-0050568522bb"}
-
+    @classes = ["cx", "cxworx", "bodystep", "step", "shbam", "sh'bam", "yoga", "ringside", "grit", "cardio", "strength", "rpm", "balance", "bodybalance", "grit cardio", "grit strength", "attack", "body attack", "pump", "body pump"]
     # Open a database
     @db = SQLite3::Database.new "gym.db"
   end
@@ -121,10 +121,11 @@ class GymSearch < Thor
       # Try find a mention of a gym in the parsed text
       gym_names = @gym_ids.keys
       gym_names.map! {|x| parsed_string.message.include?(x) ? x : nil}.compact!
-      query_options["gym_string"] = gym_names.first if !gym_names.empty?
+      query_options["gym_string"] = gym_names.first unless gym_names.empty?
 
-      # TODO: Try find a mention of a class type
-     
+      # Try find a mention of a class type
+      @classes.map! { |x| parsed_string.message.include?(x) ? x : nil}.compact!
+      query_options["class_string"] = @classes.first unless @classes.empty?
 
     # Merge the defaults with the parsed strings
     query_options = defaults.merge(query_options)
